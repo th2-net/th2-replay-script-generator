@@ -1,2 +1,3 @@
-# th2-replay-script-generator
-Common library for replay script generators
+# th2-replay-script-generator-core
+
+Core library for replay script generators

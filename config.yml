@@ -1,0 +1,16 @@
+---
+#transform:
+#  fix: # transformations for messages with 'fix' protocol
+#    ExecutionReport:
+#      header.SendingTime: # removes 'SendingTime' field in 'header' field
+#        action: REMOVE
+#      TradingParty.NoPartyIDs.*.PartyRole: # replaces value of 'PartyRole' field in each element of 'NoPartyIDs' list in 'TradingParty' field
+#        action: REPLACE
+#        value: newrole
+#      trailer: # removes 'trailer'
+#        action: REMOVE
+#sessionAliases: # session alias replacements
+#  arfq01fix04: script # replaces 'arfq01fix04' with 'script'
+#actions:
+#  Action:
+#    someSettings: false
