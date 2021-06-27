@@ -35,27 +35,29 @@ class ScriptGenerator(
     fun onMessage(message: Message) {
         logger.info { "Processing message: ${message.toJson()}" }
 
-        val transformedMessage = messageTransformer.transform(message)
+        with(messageTransformer.transform(message)) {
+            logger.info { "Transformed message: ${toJson()}" }
 
-        val added = actions.addAll(actionFactories.mapNotNull { factory ->
-            factory.from(transformedMessage)?.also { action ->
-                logger.info { "Created action: $action" }
+            val added = actions.addAll(actionFactories.mapNotNull { factory ->
+                factory.from(this)?.also { action ->
+                    logger.info { "Created action: $action" }
+                }
+            })
+
+            var updated = false
+
+            actions.removeIf { action ->
+                updated = runCatching(action::update).getOrElse {
+                    logger.error(it) { "Failed action: $action" }
+                    return@removeIf true
+                } || updated
+
+                false
             }
-        })
 
-        var updated = false
-
-        actions.removeIf { action ->
-            updated = message.runCatching(action::update).getOrElse {
-                logger.error(it) { "Failed action: $action" }
-                return@removeIf true
-            } || updated
-
-            false
-        }
-
-        if (!added && !updated) {
-            logger.warn { "Skipping message: ${message.toJson()}" }
+            if (!added && !updated) {
+                logger.warn { "Skipping message: ${toJson()}" }
+            }
         }
     }
 
