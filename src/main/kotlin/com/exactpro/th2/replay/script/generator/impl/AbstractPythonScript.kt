@@ -21,7 +21,7 @@ abstract class AbstractPythonScript : AbstractScript() {
     protected val scriptMethods: ScriptSection = ScriptSection("methods")
     protected val scriptMain: ScriptSection = ScriptSection("main")
     protected val scriptBody: ScriptSection = ScriptSection("body")
-    protected val scriptEnd: ScriptSection = ScriptSection("body")
+    protected val scriptEnd: ScriptSection = ScriptSection("end")
 
     protected val requirements: ScriptSection = ScriptSection("requirements")
 
