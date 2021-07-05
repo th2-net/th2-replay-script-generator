@@ -64,7 +64,7 @@ class ScriptSection(private val name: String) {
             logger.debug { "Started printing section: $name" }
             blocks.forEach { writer.it() }
             printed = true
-            logger.debug { "Printing of the $name section end" }
+            logger.debug { "Finished printing section: $name" }
         }
         after.values.forEach { it.print(writer) }
     }
