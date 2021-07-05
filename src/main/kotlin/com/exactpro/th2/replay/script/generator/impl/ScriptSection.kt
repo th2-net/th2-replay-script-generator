@@ -77,7 +77,7 @@ class ScriptSection(private val name: String) {
             "The $name section is already registred as before section"
         }
         check(!after.containsKey(name)) {
-            "The $name section is already registred as arter section"
+            "Section $name is already registered as after section"
         }
     }
 
