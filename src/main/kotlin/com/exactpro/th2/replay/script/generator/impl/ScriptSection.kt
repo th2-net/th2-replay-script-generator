@@ -61,7 +61,7 @@ class ScriptSection(private val name: String) {
     fun print(writer: Writer) {
         before.values.reversed().forEach { it.print(writer) }
         if (!printed) {
-            logger.debug { "Printing of the $name section begin" }
+            logger.debug { "Started printing section: $name" }
             blocks.forEach { writer.it() }
             printed = true
             logger.debug { "Printing of the $name section end" }
