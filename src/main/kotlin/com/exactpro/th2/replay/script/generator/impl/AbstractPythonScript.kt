@@ -141,8 +141,8 @@ abstract class AbstractPythonScript : AbstractScript() {
             scriptImports.print(writer)
         }
 
-        File(scriptDirectory, "requirements.txt").bufferedWriter().use {
-
+        File(scriptDirectory, "requirements.txt").bufferedWriter().use { writer ->
+            requirements.print(writer)
         }
     }
 }

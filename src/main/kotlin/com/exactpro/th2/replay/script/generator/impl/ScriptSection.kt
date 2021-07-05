@@ -71,7 +71,7 @@ class ScriptSection(private val name: String) {
 
     private fun checkSection(name: String) {
         check(name != this.name) {
-            "The $name section can't be dependence onto itself"
+            "Section $name cannot depend on itself"
         }
         check(!before.containsKey(name)) {
             "Section $name is already registered as before section"
