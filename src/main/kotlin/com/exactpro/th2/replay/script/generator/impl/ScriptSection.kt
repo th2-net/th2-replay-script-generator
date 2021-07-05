@@ -74,7 +74,7 @@ class ScriptSection(private val name: String) {
             "The $name section can't be dependence onto itself"
         }
         check(!before.containsKey(name)) {
-            "The $name section is already registred as before section"
+            "Section $name is already registered as before section"
         }
         check(!after.containsKey(name)) {
             "Section $name is already registered as after section"
