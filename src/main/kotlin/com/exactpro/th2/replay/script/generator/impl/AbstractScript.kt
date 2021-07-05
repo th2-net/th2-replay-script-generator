@@ -20,6 +20,7 @@ import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.replay.script.generator.api.IScript
 import com.google.protobuf.MessageOrBuilder
 import java.io.File
+import java.io.Writer
 
 abstract class AbstractScript: IScript {
     protected lateinit var scriptDirectory: File
@@ -40,11 +41,15 @@ abstract class AbstractScript: IScript {
 
     private fun File.createDir() = this.apply {
         if (!exists()) {
-            check(mkdirs()) { "Failed to create messages directory: $canonicalPath" }
+            check(mkdirs()) { "Failed to create directory: $canonicalPath" }
         }
     }
 
     companion object {
         fun MessageOrBuilder.save(directory: File, uid: String) = File(directory, "$uid.json").writeText(toJson(false))
+
+        fun Writer.writeText(text: String) {
+            appendLine(text.trimMargin())
+        }
     }
 }

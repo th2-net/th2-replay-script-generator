@@ -43,7 +43,7 @@ class ScriptSection(private val name: String) {
      */
     fun before(section: ScriptSection) = section.also {
         checkState()
-        checkSection(name)
+        checkSection(section)
         before.putIfAbsent(section.name, section)
     }
 
@@ -54,24 +54,30 @@ class ScriptSection(private val name: String) {
      */
     fun after(section: ScriptSection) = section.also {
         checkState()
-        checkSection(name)
+        checkSection(section)
         after.putIfAbsent(section.name, section)
     }
 
     fun print(writer: Writer) {
-        before.values.reversed().forEach { it.print(writer) }
         if (!printed) {
-            logger.debug { "Started printing section: $name" }
-            blocks.forEach { writer.it() }
-            printed = true
-            logger.debug { "Finished printing section: $name" }
+            before.values.reversed().forEach { it.print(writer) }
+            if (!printed) {
+                logger.debug { "Started printing section: $name" }
+                blocks.forEach { writer.it() }
+                printed = true
+                logger.debug { "Finished printing section: $name" }
+            }
+            after.values.forEach { it.print(writer) }
         }
-        after.values.forEach { it.print(writer) }
     }
 
-    private fun checkSection(name: String) {
-        check(name != this.name) {
+    private fun checkSection(section: ScriptSection) {
+        val name = section.name
+        check(section !== this) {
             "Section $name cannot depend on itself"
+        }
+        check(name != this.name) {
+            "Section $name:${section.hashCode()} cannot have the same name as current, the current hash code id ${hashCode()}"
         }
         check(!before.containsKey(name)) {
             "Section $name is already registered as before section"
