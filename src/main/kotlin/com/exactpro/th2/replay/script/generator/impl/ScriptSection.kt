@@ -87,15 +87,10 @@ class ScriptSection(private val name: String) {
         }
     }
 
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as ScriptSection
-
-        if (name != other.name) return false
-
-        return true
+    override fun equals(other: Any?): Boolean = when {
+        this === other -> true
+        other !is ScriptSection -> false
+        else -> name == other.name
     }
 
     override fun hashCode(): Int {
