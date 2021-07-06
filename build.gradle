@@ -58,6 +58,10 @@ jar {
     }
 }
 
+test {
+    useJUnitPlatform()
+}
+
 java {
     withJavadocJar()
     withSourcesJar()
@@ -185,4 +189,7 @@ dependencies {
     implementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: jackson_version
     implementation group: 'com.fasterxml.jackson.module', name: 'jackson-module-kotlin', version: jackson_version
     implementation group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: jackson_version
+
+    testImplementation group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: kotlin_version
+    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter', version: '5.7.2'
 }

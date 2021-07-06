@@ -35,10 +35,19 @@ class ScriptGenerator(
     fun onMessage(message: Message) {
         logger.info { "Processing message: ${message.toJson()}" }
 
-        val transformedMessage = messageTransformer.transform(message)
+        messageTransformer.transform(message).process()
+    }
+
+    override fun close() = actions.asSequence()
+        .flatMap(IAction::complete)
+        .sortedBy(IScriptBlock::timestamp)
+        .forEach { it.writeTo(scriptContext) }
+
+    private fun Message.process() {
+        logger.info { "Transformed message: ${toJson()}" }
 
         val added = actions.addAll(actionFactories.mapNotNull { factory ->
-            factory.from(transformedMessage)?.also { action ->
+            factory.from(this)?.also { action ->
                 logger.info { "Created action: $action" }
             }
         })
@@ -46,7 +55,7 @@ class ScriptGenerator(
         var updated = false
 
         actions.removeIf { action ->
-            updated = message.runCatching(action::update).getOrElse {
+            updated = runCatching(action::update).getOrElse {
                 logger.error(it) { "Failed action: $action" }
                 return@removeIf true
             } || updated
@@ -55,12 +64,7 @@ class ScriptGenerator(
         }
 
         if (!added && !updated) {
-            logger.warn { "Skipping message: ${message.toJson()}" }
+            logger.warn { "Skipping message: ${toJson()}" }
         }
     }
-
-    override fun close() = actions.asSequence()
-        .flatMap(IAction::complete)
-        .sortedBy(IScriptBlock::timestamp)
-        .forEach { it.writeTo(scriptContext) }
 }
