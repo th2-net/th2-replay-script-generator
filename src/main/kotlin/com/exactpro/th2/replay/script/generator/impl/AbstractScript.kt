@@ -16,9 +16,9 @@
 
 package com.exactpro.th2.replay.script.generator.impl
 
-import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.replay.script.generator.api.IScript
 import com.google.protobuf.MessageOrBuilder
+import com.google.protobuf.util.JsonFormat
 import java.io.File
 import java.io.Writer
 
@@ -46,10 +46,12 @@ abstract class AbstractScript: IScript {
     }
 
     companion object {
-        fun MessageOrBuilder.save(directory: File, uid: String) = File(directory, "$uid.json").writeText(toJson(false))
+        fun MessageOrBuilder.save(directory: File, uid: String) = File(directory, "$uid.json").writeText(toJson())
 
         fun Writer.writeText(text: String) {
             appendLine(text.trimMargin())
         }
+
+        private fun MessageOrBuilder.toJson(): String = JsonFormat.printer().print(this)
     }
 }
