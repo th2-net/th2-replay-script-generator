@@ -16,74 +16,91 @@
 
 package com.exactpro.th2.replay.script.generator
 
-import com.exactpro.th2.replay.script.generator.Action.CHECK_AND_REPLACE
-import com.exactpro.th2.replay.script.generator.Action.REMOVE
-import com.exactpro.th2.replay.script.generator.Action.REPLACE
+import com.exactpro.th2.replay.script.generator.Command.Operation.ADD
+import com.exactpro.th2.replay.script.generator.Command.Operation.PUT
+import com.exactpro.th2.replay.script.generator.Command.Operation.REMOVE
+import com.exactpro.th2.replay.script.generator.Command.Operation.SET
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
 import com.fasterxml.jackson.databind.JsonNode
-import java.util.SortedMap
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import com.fasterxml.jackson.databind.json.JsonMapper
+import com.fasterxml.jackson.databind.util.StdConverter
+import com.fasterxml.jackson.module.kotlin.KotlinModule
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
+import com.jayway.jsonpath.JsonPath
 
 typealias MessageType = String
 typealias MessageProtocol = String
-typealias MessageTransformations = Map<MessageType, FieldTransformations>
-typealias FieldTransformations = SortedMap<FieldPath, FieldTransformation>
+typealias MessageTransform = Map<MessageType, List<Command>>
 
 data class Configuration(
-    val transform: Map<MessageProtocol, MessageTransformations> = emptyMap(),
+    val transform: Map<MessageProtocol, MessageTransform> = emptyMap(),
     val sessionAliases: Map<String, String> = emptyMap(),
     val actions: Map<String, JsonNode> = emptyMap()
 ) {
     init {
         transform.forEach { (protocol, messages) ->
-            messages.forEach { (message, fields) ->
-                require(fields.isNotEmpty()) { "Empty transformation for $protocol message: $message" }
+            messages.forEach { (message, transformations) ->
+                require(transformations.isNotEmpty()) { "Empty transformation for $protocol message: $message" }
             }
         }
     }
 }
 
-data class FieldTransformation(val action: Action, val value: String? = null, val expected: String? = null) {
+data class Command(
+    @JsonDeserialize(converter = JsonPathConverter::class) @JsonProperty("add") val addPath: JsonPath? = null,
+    @JsonDeserialize(converter = JsonPathConverter::class) @JsonProperty("put") val putPath: JsonPath? = null,
+    @JsonDeserialize(converter = JsonPathConverter::class) @JsonProperty("set") val setPath: JsonPath? = null,
+    @JsonDeserialize(converter = JsonPathConverter::class) @JsonProperty("remove") val removePath: JsonPath? = null,
+    val field: String? = null,
+    val value: Any? = null,
+    @JsonDeserialize(converter = JsonPathConverter::class) @JsonProperty("value-from") val valuePath: JsonPath? = null,
+    @JsonProperty("only-if") val condition: Condition? = null
+) {
+    val path: JsonPath by lazy { listOfNotNull(addPath, putPath, setPath, removePath)[0] }
+
+    val operation: Operation = when {
+        addPath != null -> ADD
+        putPath != null -> PUT
+        setPath != null -> SET
+        else -> REMOVE
+    }
+
     init {
-        when (action) {
-            REMOVE -> require(value == null && expected == null) { "Remove transformations cannot have value and expected settings" }
-            REPLACE -> require( value != null && expected == null) { "Replace transformations must have value and cannot have expected settings" }
-            CHECK_AND_REPLACE -> require(value != null && expected != null) { "Check and replace transformations must have value and expected settings" }
-        }
-    }
-}
-
-class FieldPath(private val path: String): Comparable<FieldPath> {
-    private val predicates: List<(String) -> Boolean> = path.split('.').run {
-        require(isNotEmpty()) { "Empty field path" }
-
-        forEach { element ->
-            require(element.isNotBlank()) { "Empty element in field path: $path" }
-        }
-
-        map { element ->
-            when (element) {
-                "*" -> { { true } }
-                else -> element::equals
-           }
-        }
+        val paths = listOfNotNull(addPath, putPath, setPath, removePath)
+        require(paths.isNotEmpty()) { "No operation is set" }
+        require(paths.size == 1) { "More than one operation is set" }
+        require(putPath == null || field != null) { "'field' is required for 'put' operations" }
+        require(putPath != null || field == null) { "'field' is forbidden for non-'put' operations" }
+        require(removePath != null || value == null || valuePath == null) { "'value' / 'value-from' are mutually exclusive" }
+        require(removePath == null || value == null && valuePath == null) { "'value' / 'value-from' are forbidden for 'remove' operations" }
     }
 
-    fun matches(elements: List<String>): Boolean = when {
-        elements.size != predicates.size -> false
-        else -> predicates.zip(elements).all { (predicate, element) -> predicate(element) }
+    override fun toString(): String = buildString {
+        append(operation.name.lowercase())
+        field?.apply { append(" field '$this' with") }
+        value?.apply { append(" value '$this'") }
+        valuePath?.apply { append(" value from '$path'") }
+        append(" at '${path.path}'")
+        condition?.apply {
+            append(" only if value")
+            valuePath?.apply { append(" at '$path'") }
+            append(" is equal to '$expectedValue'")
+        }
     }
 
-    override fun compareTo(other: FieldPath): Int = compareValuesBy(
-        this,
-        other,
-        { it.path.length },
-        FieldPath::path
+    enum class Operation { ADD, PUT, SET, REMOVE }
+
+    data class Condition(
+        @JsonDeserialize(converter = JsonPathConverter::class) @JsonProperty("value-of") val valuePath: JsonPath? = null,
+        @JsonProperty("is-equal-to") val expectedValue: Any? = null
     )
-
-    override fun toString(): String = path
 }
 
-enum class Action {
-    REPLACE,
-    CHECK_AND_REPLACE,
-    REMOVE
+private class JsonPathConverter : StdConverter<String, JsonPath>() {
+    override fun convert(value: String): JsonPath = value.runCatching(JsonPath::compile).getOrElse {
+        throw IllegalArgumentException("Invalid path: $value", it)
+    }
 }

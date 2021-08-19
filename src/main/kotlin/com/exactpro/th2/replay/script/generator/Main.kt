@@ -20,7 +20,7 @@ package com.exactpro.th2.replay.script.generator
 
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.message.fromJson
-import com.exactpro.th2.common.message.messageType
+import com.exactpro.th2.common.message.toJson
 import com.exactpro.th2.replay.script.generator.api.IActionFactory
 import com.exactpro.th2.replay.script.generator.api.IScript
 import com.fasterxml.jackson.annotation.JsonIgnore
@@ -108,7 +108,7 @@ class ReplayScriptGenerator : CliktCommand() {
                 "message" -> when (val message = mapper.readValue<MessageEvent>(event.readData()).message) {
                     null -> LOGGER.warn { "Skipping event with null message: $event" }
                     else -> {
-                        LOGGER.info { "Received message: ${message.messageType}" }
+                        LOGGER.info { "Received message: ${message.toJson()}" }
                         generator.onMessage(message)
                     }
                 }
