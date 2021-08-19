@@ -22,6 +22,7 @@ import com.exactpro.th2.replay.script.generator.api.IAction
 import com.exactpro.th2.replay.script.generator.api.IActionFactory
 import com.exactpro.th2.replay.script.generator.api.IScriptBlock
 import com.exactpro.th2.replay.script.generator.api.IScriptContext
+import com.exactpro.th2.replay.script.generator.util.logId
 import mu.KotlinLogging
 
 class ScriptGenerator(
@@ -33,8 +34,7 @@ class ScriptGenerator(
     private val actions = mutableListOf<IAction>()
 
     fun onMessage(message: Message) {
-        logger.info { "Processing message: ${message.toJson()}" }
-
+        logger.info { "Processing message: ${message.logId}" }
         messageTransformer.transform(message).process()
     }
 
@@ -64,7 +64,7 @@ class ScriptGenerator(
         }
 
         if (!added && !updated) {
-            logger.warn { "Skipping message: ${toJson()}" }
+            logger.warn { "Skipping message: $logId" }
         }
     }
 }

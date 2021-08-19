@@ -19,105 +19,120 @@ package com.exactpro.th2.replay.script.generator
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.message.messageType
 import com.exactpro.th2.common.message.sessionAlias
-import com.exactpro.th2.common.message.toJson
-import com.exactpro.th2.replay.script.generator.Action.CHECK_AND_REPLACE
-import com.exactpro.th2.replay.script.generator.Action.REMOVE
-import com.exactpro.th2.replay.script.generator.Action.REPLACE
+import com.exactpro.th2.replay.script.generator.Command.Operation.ADD
+import com.exactpro.th2.replay.script.generator.Command.Operation.PUT
+import com.exactpro.th2.replay.script.generator.Command.Operation.REMOVE
+import com.exactpro.th2.replay.script.generator.Command.Operation.SET
+import com.exactpro.th2.replay.script.generator.util.logId
 import com.exactpro.th2.replay.script.generator.util.toMap
 import com.exactpro.th2.replay.script.generator.util.toProtoBuilder
+import com.jayway.jsonpath.Configuration
+import com.jayway.jsonpath.DocumentContext
+import com.jayway.jsonpath.JsonPath
+import com.jayway.jsonpath.Option.AS_PATH_LIST
+import com.jayway.jsonpath.PathNotFoundException
 import mu.KotlinLogging
 
 class MessageTransformer(
-    private val transforms: Map<MessageProtocol, MessageTransformations>,
+    private val transforms: Map<MessageProtocol, MessageTransform>,
     private val sessionAliases: Map<String, String>
 ) {
-    fun transform(message: Message): Message = getTransform(message)?.let { fields ->
-        LOGGER.info { "Transforming message: ${message.toJson()}" }
+    fun transform(message: Message): Message = message.run {
+        LOGGER.info { "Transforming message: $logId" }
 
-        message.toMap().run {
-            transform(listOf(), fields)
-            toProtoBuilder().run {
+        commands?.run {
+            return toMap().apply(this).toProtoBuilder().run {
                 parentEventId = message.parentEventId
                 metadata = message.metadata
                 sessionAlias = sessionAliases[sessionAlias] ?: sessionAlias
                 build()
             }
         }
-    } ?: message.run {
-        when (sessionAlias in sessionAliases) {
+
+        return when (sessionAlias in sessionAliases) {
             false -> this
-            else -> {
-                LOGGER.info { "Transforming message: ${message.toJson()}" }
-                toBuilder().apply { sessionAlias = sessionAliases[sessionAlias]!! }.build()
-            }
+            else -> toBuilder().apply { sessionAlias = sessionAliases[sessionAlias]!! }.build()
         }
     }
 
-    private fun getTransform(message: Message) = transforms[message.metadata.protocol]?.get(message.messageType)
+    private val Message.commands
+        get() = transforms[metadata.protocol]?.get(messageType)
 
     companion object {
         private val LOGGER = KotlinLogging.logger {}
+        private val PATH_CONFIG = Configuration.builder().options(AS_PATH_LIST).build()
 
-        private fun <T> T.transform(path: List<String>, transforms: FieldTransformations) {
-            when (this) {
-                is MutableList<*> -> (this as MutableList<Any?>).transform(path, transforms)
-                is MutableMap<*, *> -> (this as MutableMap<String, Any?>).transform(path, transforms)
-            }
+        private fun Map<String, Any?>.getMatchingPaths(path: JsonPath): List<JsonPath> = try {
+            path.read<List<String>>(this, PATH_CONFIG).map(JsonPath::compile)
+        } catch (e: PathNotFoundException) {
+            listOf()
         }
 
-        private fun MutableMap<String, Any?>.transform(path: List<String>, fields: FieldTransformations) {
-            val iterator = iterator()
+        private operator fun DocumentContext.get(path: JsonPath): Any? = try {
+            read<Any?>(path)
+        } catch (e: PathNotFoundException) {
+            null
+        }
 
-            while (iterator.hasNext()) {
-                val entry = iterator.next()
-                val subPath = path + entry.key
+        private fun JsonPath.resolve(path: JsonPath?): JsonPath = when {
+            path == null -> this
+            path.path[0] == '@' -> JsonPath.compile(this.path + path.path.drop(1))
+            else -> path
+        }
 
-                fields.entries.firstOrNull { (path, _) ->
-                    path.matches(subPath)
-                }?.let { (_, transform) ->
-                    when (transform.action) {
-                        REMOVE -> iterator.remove().also {
-                            LOGGER.debug { "Removed value '$it', path '$subPath'" }
-                        }
-                        REPLACE -> entry.setValue(transform.value).also {
-                            LOGGER.debug { "Replaced from '$it' to '${transform.value}', path '$subPath'" }
-                        }
-                        CHECK_AND_REPLACE -> if (entry.value == transform.expected) {
-                            entry.setValue(transform.value)
-                            LOGGER.debug { "Replaced from '${transform.expected}' to '${transform.value}', path '$subPath'" }
-                        } else {
-                            LOGGER.debug { "Transformation '$transform' skipped because expected value didn't match actual '${entry.value}', path $subPath" }
-                        }
-                    }
-                } ?: run {
-                    entry.value.transform(subPath, fields)
+        fun MutableMap<String, out Any?>.apply(commands: List<Command>) = apply {
+            val context = JsonPath.parse(this)
+
+            commands.forEach { command ->
+                LOGGER.info { "Executing command: $command" }
+
+                val paths = getMatchingPaths(command.path).ifEmpty {
+                    LOGGER.info { "No paths matching: ${command.path.path}" }
+                    return@forEach
+                }
+
+                paths.forEach { path ->
+                    LOGGER.info { "Processing path: ${path.path}" }
+                    command.applyTo(context, path)
                 }
             }
         }
 
-        private fun MutableList<Any?>.transform(path: List<String>, fields: FieldTransformations) {
-            for (index in lastIndex downTo 0) {
-                val subPath = path + index.toString()
+        private fun Command.applyTo(context: DocumentContext, path: JsonPath) = context.run {
+            condition?.run {
+                val valuePath = path.resolve(valuePath)
+                val actualValue = get(valuePath)
 
-                fields.entries.firstOrNull { (path, _) ->
-                    path.matches(subPath)
-                }?.let { (_, transform) ->
-                    when (transform.action) {
-                        REMOVE -> removeAt(index)?.let {
-                            LOGGER.debug { "Removed value '$it', path '$subPath'" }
-                        }
-                        REPLACE -> set(index, transform.value).also {
-                            LOGGER.debug { "Replaced from '$it' to '${transform.value}', path '$subPath'" }
-                        }
-                        CHECK_AND_REPLACE -> if (get(index) == transform.expected) {
-                            set(index, transform.value)
-                            LOGGER.debug { "Replaced from '${transform.expected}' to '${transform.value}', path '$subPath'" }
-                        } else {
-                            LOGGER.debug { "Transformation '$transform' skipped because expected value didn't match actual '${get(index)}', path $subPath" }
-                        }
-                    }
-                } ?: run {
-                    get(index).transform(subPath, fields)
+                LOGGER.debug { "Expecting that value at '${valuePath.path}' is: $expectedValue" }
+
+                if (expectedValue != actualValue) {
+                    LOGGER.info { "Skipping because it is: $actualValue" }
+                    return
+                }
+            }
+
+            val value = value ?: valuePath?.run {
+                val valuePath = path.resolve(this)
+                LOGGER.info { "Using value from: ${valuePath.path}" }
+                get(valuePath)
+            }
+
+            when (operation) {
+                ADD -> {
+                    add(path, value)
+                    LOGGER.info { "Successfully added value '$value' to: ${path.path}" }
+                }
+                PUT -> {
+                    put(path, field, value)
+                    LOGGER.info { "Successfully put field '$field' with value '$value' at: ${path.path}" }
+                }
+                SET -> {
+                    set(path, value)
+                    LOGGER.info { "Successfully set value '$value' to: ${path.path}" }
+                }
+                REMOVE -> {
+                    delete(path)
+                    LOGGER.info { "Successfully removed: ${path.path}" }
                 }
             }
         }

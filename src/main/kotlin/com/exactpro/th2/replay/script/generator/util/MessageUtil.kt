@@ -24,9 +24,15 @@ import com.exactpro.th2.common.grpc.Value.KindCase.LIST_VALUE
 import com.exactpro.th2.common.grpc.Value.KindCase.MESSAGE_VALUE
 import com.exactpro.th2.common.grpc.Value.KindCase.NULL_VALUE
 import com.exactpro.th2.common.grpc.Value.KindCase.SIMPLE_VALUE
+import com.exactpro.th2.common.message.direction
+import com.exactpro.th2.common.message.sequence
+import com.exactpro.th2.common.message.sessionAlias
 import com.exactpro.th2.common.message.set
 import com.exactpro.th2.common.value.nullValue
 import com.exactpro.th2.common.value.toValue
+
+val Message.logId: String
+    get() = "$sessionAlias.$direction.$sequence${metadata.id.subsequenceList.joinToString("") { ".$it" }}"
 
 fun Message.toMap(): MutableMap<String, Any?> = fieldsMap.mapValuesTo(HashMap()) { it.value.toObject() }
 
