@@ -20,6 +20,13 @@ Message transformation can be configured by adding a list transformation command
 
 Fields wrapped in square brackets are optional
 
+#### Operations
+
+* `set` - changes value of an existing field / collection element
+* `remove` - removes a field / collection element
+* `add` - adds element to an existing collection
+* `put` - adds field into a map / changes value of existing field
+
 ### Transformation configuration example:
 
 For example, transformation configuration for `fix` protocol `NewOrderSingle` message which conditionally replaces `Account` field, would look like this:

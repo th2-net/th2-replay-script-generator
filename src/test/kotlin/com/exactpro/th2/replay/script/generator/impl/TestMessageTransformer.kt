@@ -18,7 +18,7 @@ package com.exactpro.th2.replay.script.generator.impl
 
 import com.exactpro.th2.replay.script.generator.Command
 import com.exactpro.th2.replay.script.generator.Command.Condition
-import com.exactpro.th2.replay.script.generator.MessageTransformer.Companion.apply
+import com.exactpro.th2.replay.script.generator.MessageTransformer.Companion.applyCommands
 import com.jayway.jsonpath.JsonPath
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -98,10 +98,17 @@ class TestMessageTransformer {
             assertEquals<Any>(expected, command.applyTo(initial))
         }
 
-        @Test fun `put value if nested field is == expected value`() {
+        @Test fun `put value if nested field (relative path) is == expected value`() {
             val command = Command(putPath = "$.field".toPath(), field = "child", value = 130, condition = Condition(valuePath = "@.parent".toPath(), expectedValue = 131))
             val expected = mapOf("field" to mapOf("child" to 130, "parent" to 131))
             val initial = mutableMapOf("field" to mutableMapOf("parent" to 131))
+            assertEquals<Any>(expected, command.applyTo(initial))
+        }
+
+        @Test fun `put value if nested field (absolute path) is == expected value`() {
+            val command = Command(putPath = "$.field".toPath(), field = "child", value = 131, condition = Condition(valuePath = "$.field.parent".toPath(), expectedValue = 132))
+            val expected = mapOf("field" to mapOf("child" to 131, "parent" to 132))
+            val initial = mutableMapOf("field" to mutableMapOf("parent" to 132))
             assertEquals<Any>(expected, command.applyTo(initial))
         }
     }
@@ -149,7 +156,7 @@ class TestMessageTransformer {
 
     companion object {
         private fun String.toPath(): JsonPath = JsonPath.compile(this)
-        private fun Command.applyTo(map: MutableMap<String, out Any?>) = map.apply(listOf(this))
+        private fun Command.applyTo(map: MutableMap<String, out Any?>) = map.applyCommands(listOf(this))
         private inline fun <reified T : Throwable> assertException(message: String, action: () -> Unit) = assertEquals(message, assertThrows<T>(action).message)
     }
 }

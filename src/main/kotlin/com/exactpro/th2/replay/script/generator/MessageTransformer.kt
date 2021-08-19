@@ -41,7 +41,7 @@ class MessageTransformer(
         LOGGER.info { "Transforming message: $logId" }
 
         commands?.run {
-            return toMap().apply(this).toProtoBuilder().run {
+            return toMap().applyCommands(this).toProtoBuilder().run {
                 parentEventId = message.parentEventId
                 metadata = message.metadata
                 sessionAlias = sessionAliases[sessionAlias] ?: sessionAlias
@@ -80,7 +80,7 @@ class MessageTransformer(
             else -> path
         }
 
-        fun MutableMap<String, out Any?>.apply(commands: List<Command>) = apply {
+        fun MutableMap<String, out Any?>.applyCommands(commands: List<Command>) = apply {
             val context = JsonPath.parse(this)
 
             commands.forEach { command ->
