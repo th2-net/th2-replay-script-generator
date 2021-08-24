@@ -1,4 +1,4 @@
-# th2-replay-script-generator-core (0.0.3)
+# th2-replay-script-generator-core (1.0.1)
 
 Core library for replay script generators
 
@@ -42,6 +42,12 @@ transform:
 ```
 
 ## Changes
+
+### 1.0.1
+
+#### Changed:
+
++ Print value types into log when transforming a message
 
 ### 1.0.0
 

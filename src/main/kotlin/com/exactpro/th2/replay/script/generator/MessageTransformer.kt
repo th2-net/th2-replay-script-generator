@@ -80,6 +80,9 @@ class MessageTransformer(
             else -> path
         }
 
+        private val Any?.className: String?
+            get() = this?.run { this::class.simpleName }
+
         fun MutableMap<String, out Any?>.applyCommands(commands: List<Command>) = apply {
             val context = JsonPath.parse(this)
 
@@ -103,10 +106,10 @@ class MessageTransformer(
                 val valuePath = path.resolve(valuePath)
                 val actualValue = get(valuePath)
 
-                LOGGER.debug { "Expecting that value at '${valuePath.path}' is: $expectedValue" }
+                LOGGER.debug { "Expecting that value at '${valuePath.path}' is: $expectedValue (${expectedValue.className})" }
 
                 if (expectedValue != actualValue) {
-                    LOGGER.info { "Skipping because it is: $actualValue" }
+                    LOGGER.info { "Skipping because it is: $actualValue (${actualValue.className})" }
                     return
                 }
             }
@@ -120,15 +123,15 @@ class MessageTransformer(
             when (operation) {
                 ADD -> {
                     add(path, value)
-                    LOGGER.info { "Successfully added value '$value' to: ${path.path}" }
+                    LOGGER.info { "Successfully added value '$value' (${value.className}) to: ${path.path}" }
                 }
                 PUT -> {
                     put(path, field, value)
-                    LOGGER.info { "Successfully put field '$field' with value '$value' at: ${path.path}" }
+                    LOGGER.info { "Successfully put field '$field' with value '$value' (${value.className}) at: ${path.path}" }
                 }
                 SET -> {
                     set(path, value)
-                    LOGGER.info { "Successfully set value '$value' to: ${path.path}" }
+                    LOGGER.info { "Successfully set value '$value' (${value.className}) to: ${path.path}" }
                 }
                 REMOVE -> {
                     delete(path)
