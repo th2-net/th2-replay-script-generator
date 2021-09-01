@@ -115,10 +115,10 @@ class ReplayScriptGenerator : CliktCommand() {
                 "error" -> LOGGER.error { "Received error event: $event" }
                 "close" -> {
                     LOGGER.info { "Closing" }
-                    generator.runCatching { close() }
-                    script.runCatching { close() }
-                    source.runCatching { close() }
-                    client.runCatching { close() }
+                    generator.shutdown()
+                    script.shutdown()
+                    source.shutdown()
+                    client::close.shutdown("client")
                     LOGGER.info { "Closed" }
                 }
             }
@@ -152,3 +152,6 @@ private inline fun <reified T> loadSingle(): T = load<T>().run {
         else -> error("More than 1 instance of ${T::class.simpleName} has been found: $this")
     }
 }
+
+private fun (() -> Unit).shutdown(name: String) = runCatching(this).getOrElse { LOGGER.error(it) { "Failed to close $name" } }
+private fun AutoCloseable.shutdown() = ::close.shutdown(this::class.simpleName!!)
