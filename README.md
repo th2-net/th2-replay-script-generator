@@ -43,6 +43,12 @@ transform:
 
 ## Changes
 
+### 1.0.2
+
+#### Changed:
+
++ Do not suppress shutdown errors
+
 ### 1.0.1
 
 #### Changed:
