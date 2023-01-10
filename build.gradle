@@ -194,3 +194,7 @@ dependencies {
     testImplementation group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: kotlin_version
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter', version: '5.7.2'
 }
+
+dependencyLocking {    
+    lockAllConfigurations()
+}
